@@ -6,6 +6,10 @@
 
 Iris 运行 DeepAgents/LangGraph，负责会话、澄清、计划、人工确认、Skill 编排、流式进度与报告。它不直接访问业务数据库、Celt、Shell、文件系统或任意 MCP；模型不持有服务/账号凭据，也不是权限裁决者。
 
+### Seed 依赖契约
+
+Iris 通过正式、精确锁定的 Seed wheel 按需使用 `core/config/context/errors/events/security/crypto/audit/observability/fastapi/redis/oceanbase`；实际 extras 由技术方案声明。Seed 只提供技术连接与横切原语，AgentRun、Approval、SkillInvocation、checkpoint/event log 的 Model、Repository、状态和迁移留在 Iris。Iris Story 需要新增基础能力时，在该 Story 下派生 Seed 子任务；最终 version 的 wheel 一次构建并按 SHA-256 在 Test 验证，随后将同一 digest 原样提升 release 并更新锁文件。禁止 Git/path 依赖、复制基础实现或 Seed 反向依赖 Iris。
+
 ## 2. 核心模型
 
 AgentConversation/AgentMessage 只保存智能体交互，不与 Mud 的业务 Conversation/Message 同名或双写；引用业务消息时只保存授权引用与脱敏摘要。AgentConversation、Run、Plan、PlanApproval、Invocation、EventLog 全部显式保存 `tenant_id`、creator/user、唯一 owner 与版本；任何按 ID/cursor/token 的读取、恢复或确认都先校验当前 principal 和有效 Own/User，token 本身不授予访问权。AgentRun 固定模型、提示、Skill 与契约版本；Plan 是待提交的 Action/Workflow/Task Command 列表，不承担分支、失败、子流程或执行状态控制。PlanApproval 只表达用户对会话计划的同意，绑定 Run、计划/Skill/契约版本、规范化参数/目标摘要、确认人、一次性 token 和过期时间，不授予权限或替代 Stem Confirmation；SkillInvocation 保存稳定幂等键、调用状态、授权来源、后端关联 ID 和输出摘要。

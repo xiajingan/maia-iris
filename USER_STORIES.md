@@ -2,6 +2,8 @@
 
 > 产品演进顺序：I0 会话/澄清 → I1 只读 Skill → I2 低风险命令 → I3 高风险确认/恢复 → I4 报告运营。每个故事必须记录模型、Prompt、Skill、API 和授权版本，并验证拒绝路径。
 
+Seed 不独立迭代：Iris Story 的 Seed 子任务只登记在 `maia-seed:CONSUMERS.yaml`，本文件不复制映射。Story 进入 `ready` 前须存在对应单边记录并固定 wheel version + SHA-256；Test 验证的同一 digest 原样提升 release。Agent 领域模型和 checkpoint 语义不得下沉 Seed，禁止 Git/path 依赖。
+
 | ID | 用户故事 | 验收标准 | 来源 | 状态 |
 |---|---|---|---|---|
 | IRIS-001 | 作为用户，我希望在 Sage Chat 创建和恢复会话。 | Conversation/Run/Approval/Invocation/EventLog 全部租户隔离；SSE 可按游标恢复；断线不重复 Skill。 | IRS-007 | `draft` |
