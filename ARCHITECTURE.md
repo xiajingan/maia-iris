@@ -8,7 +8,7 @@ Iris 运行 DeepAgents/LangGraph，负责会话、澄清、计划、人工确认
 
 ### Seed 依赖契约
 
-Iris 通过正式、精确锁定的 Seed wheel 按需使用 `core/config/context/errors/events/security/crypto/audit/observability/fastapi/redis/oceanbase`；实际 extras 由技术方案声明。Seed 只提供技术连接与横切原语，AgentRun、Approval、SkillInvocation、checkpoint/event log 的 Model、Repository、状态和迁移留在 Iris。Iris Story 需要新增基础能力时，在该 Story 下派生 Seed 子任务；最终 version 的 wheel 一次构建并按 SHA-256 在 Test 验证，随后将同一 digest 原样提升 release 并更新锁文件。禁止 Git/path 依赖、复制基础实现或 Seed 反向依赖 Iris。
+Iris 通过正式、精确锁定的 Seed wheel 按需使用 `core/config/context/errors/events/security/crypto/audit/observability/fastapi/redis/oceanbase`；实际 extras 由技术方案声明。Seed 只提供技术连接与横切原语，AgentRun、Approval、SkillInvocation、checkpoint/event log 的 Model、Repository、状态和迁移留在 Iris。Iris Sprint 发现公共基础缺口时，从当前 Story/Task 向 Seed 写入 `dependency` Assignment；Seed 自主规划并以 `dependency-package` Delivery 返回精确 wheel version + SHA-256 后，Iris 更新锁文件并完成 Test。禁止 `latest`、Git/path 依赖、复制基础实现或 Seed 反向依赖 Iris。
 
 ## 2. 核心模型
 
