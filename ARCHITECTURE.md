@@ -1,5 +1,7 @@
 # Iris 架构
 
+**当前 Profile**：`simple-layered`
+
 > Iris 是 Maia 的受控智能体服务。自然语言由模型理解，业务副作用只能通过已注册 Skill 和服务 API 发生。
 
 ## 1. 定位与信任边界
