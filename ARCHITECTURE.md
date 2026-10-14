@@ -10,7 +10,7 @@ Iris 运行 DeepAgents/LangGraph，负责会话、澄清、计划、人工确认
 
 ### Seed 依赖契约
 
-Iris 通过正式、精确锁定的 Seed wheel 按需使用 `core/config/context/errors/events/security/crypto/audit/observability/fastapi/redis/oceanbase`；实际 extras 由技术方案声明。Seed 只提供技术连接与横切原语，AgentRun、Approval、SkillInvocation、checkpoint/event log 的 Model、Repository、状态和迁移留在 Iris。Iris Sprint 发现公共基础缺口时，从当前 Story/Task 向 Seed 写入 `dependency` Assignment；Seed 自主规划并以 `dependency-package` Delivery 返回精确 wheel version + SHA-256 后，Iris 更新锁文件并完成 Test。禁止 `latest`、Git/path 依赖、复制基础实现或 Seed 反向依赖 Iris。
+Iris 按实际需求消费 Seed 的版本化 TS/npm 技术包，锁定版本与摘要。Seed 提供配置、上下文、错误/事件、安全和观测等技术原语；AgentRun、Approval、SkillInvocation、checkpoint/EventLog 的模型、Repository 与状态归 Iris，Seed 不反向依赖业务工程。
 
 ## 2. 核心模型
 
@@ -24,9 +24,9 @@ Sage Chat 通过 HTTPS + SSE 调用 Iris API；SSE 是服务端事件的唯一�
 
 LangGraph checkpoint 支持断流恢复和人工中断。每个 Run 只有一个持租约 Worker；权威 EventLog 使用 Run 内单调序号和终态，客户端游标在保留窗口续传，过期后以快照重建并重新授权。通用子智能体、代码执行和动态 MCP 默认关闭，未来启用需独立安全故事。模型供应商的数据保留、地域和训练使用必须由租户策略允许；提示注入检测不能替代 Skill 参数、权限和确认校验。
 
-## 4. 数据、部署与观测
+## 4. 数据与观测
 
-Iris 私有保存 AgentConversation/AgentRun/checkpoint/approval/invocation/event log，不复制公共业务数据。报告保存 Task/Todo/Execution/Proof 授权引用、失败分类和恢复动作，不复制执行事实。Python 服务以 OCI/Helm 部署，模型 Secret 由环境注入；API 与运行 Worker可独立伸缩。审计记录模型/提示/Skill/API 版本，指标覆盖首事件延迟、澄清率、拒绝率、确认等待、outcome_unknown、恢复次数和 token 成本。
+Iris 私有保存 AgentConversation/AgentRun/checkpoint/approval/invocation/event log，不复制公共业务数据。报告保存 Task/Todo/Execution/Proof 授权引用、失败分类和恢复动作，不复制执行事实。服务采用[技术栈基线](../docs/architecture/technology-stack.md)的 TS/Node.js/Fastify 和 TiDB/Drizzle；模型、checkpoint 与工具边界遵循 [Agent 运行时](../docs/architecture/agent-runtime.md)。模型 Secret 由受控配置注入；资源及运行配置见[部署设计](../docs/DEPLOYMENT.md)。审计记录模型/提示/Skill/API 版本，指标覆盖首事件延迟、澄清率、拒绝率、确认等待、outcome_unknown、恢复次数和 token 成本。
 
 ### 4.1 业务模块
 
@@ -46,15 +46,9 @@ Iris 私有保存 AgentConversation/AgentRun/checkpoint/approval/invocation/even
 
 SkillDescriptor 固定 `name/version/input/output/risk/required_role/authorization_targets/idempotency_mode/timeout/result_query`。查询 Skill 只读，命令 Skill 必须提供稳定幂等键和结果查询；缺少对账接口的外部副作用 Skill 不得发布。
 
-### 4.3 非功能和产品演进
+### 4.3 非功能
 
 - 安全：不可信业务内容与 system prompt 分区；输出 Schema 校验；工具参数再次授权；模型供应商保留/地域策略租户化。
 - 高可用：Run lease 防双 Worker；EventLog 可恢复；模型/下游超时进入可对账状态，不重复副作用。
 - 性能：首个确认事件与模型生成解耦；长报告分页/流式；会话上下文按 token budget 摘要且保留来源引用。
 - 可维护：Planner、Policy、Skill、Model Provider 均为窄端口；Prompt/Skill/模型版本可复现。
-
-路线：I0 Chat/澄清 → I1 只读查询 Skills → I2 低风险 Task Command → I3 高风险确认/崩溃对账 → I4 报告与运营 → I5 经安全评审的领域子 Agent；通用 Shell/文件/MCP 不进入默认路线。
-
-## 5. 扩散与迁移
-
-首个 Sprint 前固定 Sage Chat SSE、Mud 查询/授权端口、Mint/Tea/Stem Command 与幂等契约，并更新总体架构图。`maia-iris-v0.1.0` 使用 Alembic 将旧对话/Agent 实现映射为 AgentConversation/Run/Invocation，无法证明关联的数据只读归档，并切换 Sage client、Skill/确认协议和 checkpoint；Test 验证澄清、Stem Confirmation、崩溃对账、断流恢复和报告。`maia-iris-v0.2.0` 删除旧 API、旧 tool adapter、旧 checkpoint 和旧确认入口，不长期兼容双模型。
