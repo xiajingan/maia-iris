@@ -14,7 +14,7 @@ Iris 按实际需求消费 Seed 的版本化 TS/npm 技术包，锁定版本与�
 
 ## 2. 核心模型
 
-AgentConversation/AgentMessage 只保存智能体交互，不与 Mud 的业务 Conversation/Message 同名或双写；引用业务消息时只保存授权引用与脱敏摘要。AgentConversation 是 Iris 的主对象，显式保存 `tenant_id`、Creator、Owner（`owner_workspace_id` + 可空 `owner_user_id`，按 [Maia §2.1](../USER_STORIES.md#21-权限模型) 在创建时确定）、使用范围（默认仅 Owner）与版本；Run、Plan、PlanApproval、Invocation、EventLog 是其附属对象，只保存 `tenant_id` 与所属会话 ID。任何按 ID/cursor/token 的读取、恢复或确认都先以 Mud AccessContext + Seed `access-scope-kernel.v1` 校验当前 User 对所属会话的 Own/Use，token 本身不授予访问权。AgentRun 固定模型、提示、Skill 与契约版本；Plan 是待提交的 Action/Workflow/Task Command 列表，不承担分支、失败、子流程或执行状态控制。PlanApproval 只表达用户对会话计划的同意，绑定 Run、计划/Skill/契约版本、规范化参数/目标摘要、确认人、一次性 token 和过期时间，不授予权限或替代 Stem Confirmation；SkillInvocation 保存稳定幂等键、调用状态、授权来源、后端关联 ID 和输出摘要。
+AgentConversation/AgentMessage 只保存智能体交互，不与 Mud 的业务 Conversation/Message 同名或双写；引用业务消息时只保存授权引用与脱敏摘要。AgentConversation 是 Iris 的主对象，显式保存 `tenant_id`、Creator、Owner（`owner_workspace_id` + 可空 `owner_user_id`，按 [Maia §2.1](../docs/product/constraints/permission-model.md#21-权限模型) 在创建时确定）、使用范围（默认仅 Owner）与版本；Run、Plan、PlanApproval、Invocation、EventLog 是其附属对象，只保存 `tenant_id` 与所属会话 ID。任何按 ID/cursor/token 的读取、恢复或确认都先以 Mud AccessContext + Seed `access-scope-kernel.v1` 校验当前 User 对所属会话的 Own/Use，token 本身不授予访问权。AgentRun 固定模型、提示、Skill 与契约版本；Plan 是待提交的 Action/Workflow/Task Command 列表，不承担分支、失败、子流程或执行状态控制。PlanApproval 只表达用户对会话计划的同意，绑定 Run、计划/Skill/契约版本、规范化参数/目标摘要、确认人、一次性 token 和过期时间，不授予权限或替代 Stem Confirmation；SkillInvocation 保存稳定幂等键、调用状态、授权来源、后端关联 ID 和输出摘要。
 
 ## 3. 运行结构
 
