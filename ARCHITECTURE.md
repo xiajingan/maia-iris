@@ -6,7 +6,7 @@
 
 ## 1. 定位与信任边界
 
-Iris 运行 DeepAgents/LangGraph，负责会话、澄清、计划、人工确认、Skill 编排、流式进度与报告。它不直接访问业务数据库、Celt、Shell、文件系统或任意 MCP；模型不持有服务/账号凭据，也不是权限裁决者。
+Iris 运行 DeepAgents/LangGraph，负责会话、澄清、计划、人工确认、Skill 编排、流式进度与报告。它不直接访问业务数据库、Celt、Shell、文件系统或任意 MCP；模型不持有服务/账号凭据，也不是权限裁决者。Iris 能做的事不超过 Sage：能用的账号、能找的目标、哪些动作需要确认、谁能确认都与 Sage 相同（[全局验收](../docs/product/constraints/acceptance.md) 第 5 条）。模型上下文只放完成请求所需的名称和统计数字，不放手机号、凭据和外部接口原始响应（[数据保护](../docs/product/constraints/data-protection.md) 第 3 条）。本节与 §3、§4.2 承接原 US-071、US-076（已废弃）。
 
 ### Seed 依赖契约
 
@@ -14,19 +14,19 @@ Iris 按实际需求消费 Seed 的版本化 TS/npm 技术包，锁定版本与�
 
 ## 2. 核心模型
 
-AgentConversation/AgentMessage 只保存智能体交互，不与 Mud 的业务 Conversation/Message 同名或双写；引用业务消息时只保存授权引用与脱敏摘要。AgentConversation 是 Iris 的主对象，显式保存 `tenant_id`、Creator、Owner（`owner_workspace_id` + 可空 `owner_user_id`，按 [Maia §2.1](../docs/product/constraints/permission-model.md#21-权限模型) 在创建时确定）、使用范围（默认仅 Owner）与版本；Run、Plan、PlanApproval、Invocation、EventLog 是其附属对象，只保存 `tenant_id` 与所属会话 ID。任何按 ID/cursor/token 的读取、恢复或确认都先以 Mud AccessContext + Seed `access-scope-kernel.v1` 校验当前 User 对所属会话的 Own/Use，token 本身不授予访问权。AgentRun 固定模型、提示、Skill 与契约版本；Plan 是待提交的 Action/Workflow/Task Command 列表，不承担分支、失败、子流程或执行状态控制。PlanApproval 只表达用户对会话计划的同意，绑定 Run、计划/Skill/契约版本、规范化参数/目标摘要、确认人、一次性 token 和过期时间，不授予权限或替代 Stem Confirmation；SkillInvocation 保存稳定幂等键、调用状态、授权来源、后端关联 ID 和输出摘要。
+AgentConversation/AgentMessage 只保存智能体交互，不与 Mud 的业务 Conversation/Message 同名或双写；引用业务消息时只保存授权引用与脱敏摘要。AgentConversation 是 Iris 的主对象，显式保存 `tenant_id`、Creator、Owner（`owner_workspace_id` + 可空 `owner_user_id`，按 [Maia §2.1](../docs/product/constraints/permission-model.md#21-权限模型) 在创建时确定）、使用范围（固定仅 Owner，Owner 固定为发起人的个人节点，见 [Maia §2.1.2](../docs/product/constraints/permission-model.md#212-实体归属与权限延伸)）与版本；Run、Plan、PlanApproval、Invocation、EventLog 是其附属对象，只保存 `tenant_id` 与所属会话 ID。任何按 ID/cursor/token 的读取、恢复或确认都先以 Mud AccessContext + Seed `access-scope-kernel.v1` 校验当前 User 对所属会话的 Own/Use，token 本身不授予访问权。AgentRun 固定模型、提示、Skill 与契约版本；Plan 是待提交的 Action/Workflow/Task Command 列表，不承担分支、失败、子流程或执行状态控制。PlanApproval 只表达用户对会话计划的同意，绑定 Run、计划/Skill/契约版本、规范化参数/目标摘要、确认人、一次性 token 和过期时间，不授予权限或替代 Stem Confirmation；SkillInvocation 保存稳定幂等键、调用状态、授权来源、后端关联 ID 和输出摘要。
 
 ## 3. 运行结构
 
 Sage Chat 通过 HTTPS + SSE 调用 Iris API；SSE 是服务端事件的唯一流协议，写命令始终用 HTTPS。Runtime 将 Message/Content/Skill 输出标记为不可信数据，与系统指令隔离，先最小化/脱敏并以 Schema 校验模型输出，再由 Planner 生成结构化 Command。Policy Gateway 不复制业务授权规则：它调用数据所有者的版本化授权/查询端口，校验同一根 Workspace，并由所有者按 Owner/使用范围 + AccessContext 判定每个关联实体的 Own/Use、记录权限来源。查询 Skill 以请求用户身份判定 Use（联系人、会话、消息随参与 Account）；命令 Skill 委托业务服务创建任务时，操作人须对所选 Owner 有 Own，依赖以 Owner 身份校验，能力不兼容返回“无法执行”而非权限拒绝。Account/Contacts/Content/Actions 查询 Skill 调用 Mud API；业务 Skill 调用 Mint/Tea/Stem。
 
-高风险计划中断等待 PlanApproval；消费其 token、创建 SkillInvocation 与记录待调用状态原子完成。若计划包含外部副作用，Iris 以同一版本/参数/目标摘要请求并只保存 Stem `confirmation_id`，Stem 是 Confirmation 的唯一签发者和入队消费者；换参、换版本、过期或重新授权失败同时作废 PlanApproval 与 Confirmation。SkillInvocation 遵循 `prepared → calling → succeeded/failed/outcome_unknown`；调用前持久化稳定 idempotency key，下游据此去重，崩溃恢复时先查询结果/对账，不无条件重放副作用。最终执行状态以业务服务为准。
+动作标为“提交前需要确认”的计划中断等待 PlanApproval（按动作定义上的标记，不另设风险等级；[群发与素材 §3](../docs/product/constraints/reach.md)）；消费其 token、创建 SkillInvocation 与记录待调用状态原子完成。若计划包含外部副作用，Iris 以同一版本/参数/目标摘要请求并只保存 Stem `confirmation_id`，Stem 是 Confirmation 的唯一签发者和入队消费者；换参、换版本、过期或重新授权失败同时作废 PlanApproval 与 Confirmation。用户在对话卡片或 Sage 确认页的一次点击同时完成 PlanApproval 与 Stem Confirmation；在对话中修改时作废旧的 PlanApproval 并取消旧任务，原因“在对话中修改”，再按新参数重新请求（US-131）。SkillInvocation 遵循 `prepared → calling → succeeded/failed/outcome_unknown`；调用前持久化稳定 idempotency key，下游据此去重，崩溃恢复时先查询结果/对账，不无条件重放副作用。最终执行状态以业务服务为准。
 
-LangGraph checkpoint 支持断流恢复和人工中断。每个 Run 只有一个持租约 Worker；权威 EventLog 使用 Run 内单调序号和终态，客户端游标在保留窗口续传，过期后以快照重建并重新授权。通用子智能体、代码执行和动态 MCP 默认关闭，未来启用需独立安全故事。模型供应商的数据保留、地域和训练使用必须由根 Workspace 策略允许；提示注入检测不能替代 Skill 参数、权限和确认校验。
+LangGraph checkpoint 支持断流恢复和人工中断。每个 Run 只有一个持租约 Worker；权威 EventLog 使用 Run 内单调序号和终态，客户端游标在保留窗口续传，过期后以快照重建并重新授权。通用子智能体、代码执行和动态 MCP 默认关闭；新增或启用 Skill、工具须按 [从设计到交付](../docs/product/constraints/delivery.md) 经安全评审、版本发布和 Test 验证。模型供应商的数据保留、地域和训练使用必须由根 Workspace 策略允许；提示注入检测不能替代 Skill 参数、权限和确认校验。
 
 ## 4. 数据与观测
 
-Iris 私有保存 AgentConversation/AgentRun/checkpoint/approval/invocation/event log，不复制公共业务数据。报告保存 Task/Todo/Execution/Proof 授权引用、失败分类和恢复动作，不复制执行事实。服务采用[技术栈基线](../docs/architecture/technology-stack.md)的 TS/Node.js/Fastify 和 TiDB/Drizzle；模型、checkpoint 与工具边界遵循 [Agent 运行时](../docs/architecture/agent-runtime.md)。模型 Secret 由受控配置注入；资源及运行配置见[部署设计](../docs/DEPLOYMENT.md)。审计记录模型/提示/Skill/API 版本，指标覆盖首事件延迟、澄清率、拒绝率、确认等待、outcome_unknown、恢复次数和 token 成本。
+Iris 私有保存 AgentConversation/AgentRun/checkpoint/approval/invocation/event log，不复制公共业务数据。报告保存 Task/Todo/Execution/Proof 授权引用、失败分类和恢复动作，不复制执行事实。服务采用[技术栈基线](../docs/architecture/technology-stack.md)的 TS/Node.js/Fastify 和 TiDB/Drizzle；模型、checkpoint 与工具边界遵循 [Agent 运行时](../docs/architecture/agent-runtime.md)。模型 Secret 由受控配置注入；资源及运行配置见[部署设计](../docs/DEPLOYMENT.md)。审计记录模型/提示/Skill/API 版本，指标覆盖首事件延迟、澄清率、拒绝率、确认等待、outcome_unknown、恢复次数和 token 成本。追踪事件覆盖每次计划和 Skill 调用；结果分为澄清、拒绝、执行失败、模型失败四类，口径供 [可观测性 §4](../docs/architecture/observability.md#4-指标与故障处理) 引用；本段承接原 US-074（已废弃）。端到端回归按 [全局验收](../docs/product/constraints/acceptance.md) 第 7 条（原 US-078）。
 
 ### 4.1 业务模块
 
